@@ -1,0 +1,14 @@
+g(a){
+    return *a;
+}
+
+f(){
+    var a;
+    var b;
+    a=10;
+    if( a == 10 ){
+        b=g(&a);
+    }
+    
+    return a;
+}

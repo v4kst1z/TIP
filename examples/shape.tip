@@ -1,0 +1,13 @@
+main() {
+    var x,y,n,p,q;
+    x = alloc; y = alloc;
+    *x = null; *y = y;
+    n = input;
+    while (n>0) {
+        p = alloc; q = alloc;
+        *p = x; *q = y;
+        x = p; y = q;
+        n = n-1;
+    }
+    return 0;
+}

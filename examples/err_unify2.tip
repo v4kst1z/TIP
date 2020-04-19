@@ -1,0 +1,12 @@
+// Not typable : int = [[r]]=[[g]]=&\alpha
+
+foo(p) {
+    return *p;
+}
+
+main() {
+    var x;
+    x = 5;
+    x = foo;
+    return 4;
+}
