@@ -1,10 +1,10 @@
-use crate::token::Token;
+use crate::token::{Token, get_keywords};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use crate::position::Position;
 use std::borrow::Borrow;
 
-
+#[derive(Debug)]
 pub struct NewlineHandler<T: Iterator<Item = char>> {
     source: T,
     chr0: Option<char>,
@@ -33,7 +33,6 @@ where T : Iterator<Item=char> {
         ret_char
     }
 }
-
 
 impl<T> Iterator for NewlineHandler<T>
 where
@@ -116,6 +115,81 @@ impl<T> Lexer<T>
                         self.result.push(Token::Ident(name));
                     }
                 }
+                '0'..='9' => {
+                    let mut result = String::new();
+                    loop {
+                        if self.chr0 == None || !self.chr0.unwrap().is_digit(10) {
+                            break;
+                        }
+
+                        result = result + self.chr0.unwrap().to_string().as_str();
+                        self.next_char();
+                    }
+                    self.result.push(Token::Number(result.parse::<u64>().unwrap()));
+                }
+                '+' => {
+                    self.next_char();
+                    self.result.push(Token::Plus);
+                }
+                '-' => {
+                    self.next_char();
+                    self.result.push(Token::Sub);
+                }
+                '*' => {
+                    self.next_char();
+                    self.result.push(Token::Mult);
+                }
+                '/' => {
+                    self.next_char();
+                    self.result.push(Token::Div);
+                }
+                '&' => {
+                    self.next_char();
+                    self.result.push(Token::Ampersand);
+                }
+                ';' => {
+                    self.next_char();
+                    self.result.push(Token::Semi);
+                }
+                '=' => {
+                    self.next_char();
+                    if self.chr0.unwrap() == '=' {
+                        self.next_char();
+                        self.result.push(Token::Equal);
+                    } else {
+                        self.result.push(Token::Assign);
+                    }
+                }
+                '>' => {
+                    self.next_char();
+                    self.result.push(Token::Great);
+                }
+                '(' => {
+                    self.next_char();
+                    self.result.push(Token::Lparen);
+                }
+                ')' => {
+                    self.next_char();
+                    self.result.push(Token::Rparen);
+                }
+                '{' => {
+                    self.next_char();
+                    self.result.push(Token::Lcurly);
+                }
+                '}' => {
+                    self.next_char();
+                    self.result.push(Token::Rcurly);
+                }
+                ',' => {
+                    self.next_char();
+                    self.result.push(Token::Comma);
+                }
+                '\n' => {
+                    self.next_char();
+                }
+                ' ' => {
+                    self.next_char();
+                },
                 _ => {}
             }
         }

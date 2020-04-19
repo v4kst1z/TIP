@@ -41,10 +41,9 @@ pub enum Token {
     Div,          // /
     Ampersand,    //&
 
-    Eof,
 }
 
-fn get_keywords() -> HashMap<String, Token> {
+pub fn get_keywords() -> HashMap<String, Token> {
     let mut result = HashMap::new();
 
     result.insert(String::from("if"), Token::If);
