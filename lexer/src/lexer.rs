@@ -140,8 +140,16 @@ impl<T> Lexer<T>
                     self.result.push(Token::Mult);
                 }
                 '/' => {
-                    self.next_char();
-                    self.result.push(Token::Div);
+                    if self.chr1 == Some('/') {
+                        self.next_char();
+                        self.skip_until_new_line();
+                    } else if self.chr1 == Some('*') {
+                        self.next_char();
+                        self.skip_comment();
+                    } else {
+                        self.next_char();
+                        self.result.push(Token::Div);
+                    }
                 }
                 '&' => {
                     self.next_char();
@@ -191,6 +199,39 @@ impl<T> Lexer<T>
                     self.next_char();
                 },
                 _ => {}
+            }
+        }
+    }
+
+    fn skip_comment(&mut self)  {
+        self.next_char();
+        loop {
+            let tmp_char = self.chr0;
+            self.chr0 = self.chr1;
+            self.chr1 = self.chars.next();
+            if tmp_char == Some('\n') {
+                self.pos.new_line();
+            } else {
+                self.pos.go_right();
+                if tmp_char == Some('*') && self.chr0 == Some('/') {
+                    self.next_char();
+                    break;
+                }
+            }
+        }
+    }
+
+    fn skip_until_new_line(&mut self)  {
+        self.next_char();
+        loop {
+            let tmp_char = self.chr0;
+            self.chr0 = self.chr1;
+            self.chr1 = self.chars.next();
+            if tmp_char == Some('\n') {
+                self.pos.new_line();
+                break;
+            } else {
+                self.pos.go_right();
             }
         }
     }
