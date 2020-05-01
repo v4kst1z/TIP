@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use crate::position::Position;
 
 #[derive(Clone,Debug, Eq, Hash, PartialEq)]
 pub enum Token {

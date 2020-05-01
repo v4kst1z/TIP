@@ -2,7 +2,6 @@ use crate::token::{Token, get_keywords};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use crate::position::Position;
-use std::borrow::Borrow;
 
 #[derive(Debug)]
 pub struct NewlineHandler<T: Iterator<Item = char>> {
@@ -161,7 +160,7 @@ impl<T> Lexer<T>
                 }
                 '=' => {
                     self.next_char();
-                    if self.chr0.unwrap() == '=' {
+                    if self.chr0 == Some('=') {
                         self.next_char();
                         self.result.push(Token::Equal);
                     } else {
