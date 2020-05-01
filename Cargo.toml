@@ -8,3 +8,4 @@ edition = "2018"
 
 [dependencies]
 lexer = {path = "./lexer", version = "0.1.0"}
+parser = {path = "./parser", version = "0.1.0"}
