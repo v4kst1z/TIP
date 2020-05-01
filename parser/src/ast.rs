@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq)]
 pub struct Program {
-    prog_name: String,
+    pub prog_name: String,
     pub fun_decl: FunctionDecls,
 }
 
@@ -13,10 +13,10 @@ pub struct FunctionDecl {
     pub body: Statements,
 }
 
-pub type Statements = Vec<Statment>;
+pub type Statements = Vec<Statement>;
 
 #[derive(Debug, PartialEq)]
-pub enum Statment {
+pub enum Statement {
     VarAssignment{
         target: Box<Expression>,
         value: Box<Expression>,
@@ -45,12 +45,13 @@ pub enum Statment {
 
 pub type Expressions = Vec<Expression>;
 
+#[derive(Debug, PartialEq)]
 pub enum Expression {
     Malloc,
     Input,
     Null,
     Number {
-        value: Number,
+        value: i64,
     },
     Identifier {
         name: String,
