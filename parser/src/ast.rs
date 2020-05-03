@@ -36,11 +36,15 @@ pub enum Statement {
         body: Statements,
     },
     Return { value: Expression },
+    Error { value: Expression },
     If {
         cond: Expression,
         then: Statements,
         orelse: Option<Statements>,
     },
+    Block {
+        body: Statements,
+    }
 }
 
 pub type Expressions = Vec<Expression>;

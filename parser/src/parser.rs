@@ -1,10 +1,10 @@
 use lexer::token::Token;
 use std::fmt::Debug;
-use std::io::Error;
+use std::io::{Error};
 use crate::ast::{Expression, Program, FunctionDecl, Operator, UnaryOperator, Statements, Statement};
 use lexer::token::Token::{Ident, Rparen, Comma};
 use crate::ast::Expression::{Malloc, Input, Null, Number, Identifier, Binop, Unop, PointerInvocation};
-use crate::ast::Statement::{VarAssignment, LocalDecl, Output, Return, While, If, PointerAssignment};
+use crate::ast::Statement::{VarAssignment, LocalDecl, Output, Return, While, If, PointerAssignment, Block};
 
 #[derive(PartialEq)]
 pub struct Parser<T: Iterator<Item = Token> + Debug + Clone> {
@@ -86,25 +86,36 @@ impl<T> Parser<T>
             }
             Some(Token::Lparen)  if self.tok1 == Some(Token::Mult) => {
                 self.next_token();
-                let fun_name = self.parse_expr()?;
-                self.next_token();
-                let args = self.parse_fun_args()?;
-                Ok(PointerInvocation {
-                    function_name: Box::new(fun_name),
-                    args: args,
-                })
+                let expr = self.parse_expr()?;
+                if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
+                    self.next_token();
+                    let args = self.parse_fun_args()?;
+                    Ok(PointerInvocation {
+                        function_name: Box::new(expr),
+                        args: args,
+                    })
+                } else {
+                    self.next_token();
+                    Ok(expr)
+                }
             }
             Some(Token::Lparen)  => {
                 self.next_token();
-                let fun_name = self.parse_expr()?;
-                self.next_token();
-                let args = self.parse_fun_args()?;
-                Ok(Expression::Call {
-                    function_name: Box::new(fun_name),
-                    args
-                })
+                let expr = self.parse_expr()?;
+                if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
+                    self.next_token();
+                    let args = self.parse_fun_args()?;
+                    Ok(Expression::Call {
+                        function_name: Box::new(expr),
+                        args
+                    })
+                } else {
+                    self.next_token();
+                    Ok(expr)
+                }
+
             }
-            _ => panic!("Err parse expr!")
+            _ => panic!("Err parse expr! {:?}", self.token)
         }
     }
 
@@ -152,7 +163,7 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = Box::new(self.additive_expr()?);
+            let right = Box::new(self.unary_expr()?);
             expr = Binop {
                 a: Box::new(expr),
                 op: operator,
@@ -176,13 +187,14 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = Box::new(self.additive_expr()?);
+            let right = Box::new(self.multiplicative_expr()?);
             expr = Binop {
                 a: Box::new(expr),
                 op: operator,
                 b: right
             }
         }
+
         Ok(expr)
     }
 
@@ -244,12 +256,16 @@ impl<T> Parser<T>
 
     fn parse_block(&mut self, ) -> Result<Statements, Error> {
         let mut stmts = vec![];
-        self.next_token(); // consume {
-        loop {
-            if self.tok0 == Some(Token::Rcurly) {
-                self.next_token();
-                break;
+        if self.tok0 == Some(Token::Lcurly) {
+            self.next_token(); // consume {
+            loop {
+                if self.tok0 == Some(Token::Rcurly) {
+                    self.next_token();
+                    break;
+                }
+                stmts.push(self.parse_stmt()?);
             }
+        } else {
             stmts.push(self.parse_stmt()?);
         }
         Ok(stmts)
@@ -260,6 +276,7 @@ impl<T> Parser<T>
         match self.tok0.clone() {
             Some(Ident(var_name)) => {
                 self.next_token();
+
                 if let Some(Token::Assign) = self.tok0.clone() {
                     self.next_token();
                     let value = self.parse_expr()?;
@@ -294,6 +311,14 @@ impl<T> Parser<T>
                 self.next_token(); //consume ;
                 Ok(Return {
                     value: ret_expr,
+                })
+            }
+            Some(Token::Error) => {
+                self.next_token();
+                let err_expr = self.parse_expr()?;
+                self.next_token(); //consume ;
+                Ok(Statement::Error {
+                    value: err_expr
                 })
             }
             Some(Token::While) => {
@@ -336,7 +361,12 @@ impl<T> Parser<T>
                     value: Box::new(right),
                 })
             }
-            _ => panic!("Err in parse stmt~~"),
+            Some(Token::Lcurly) => {
+                Ok(Block {
+                    body: self.parse_block()?,
+                })
+            }
+            _ => panic!("Err in parse stmt~~ {:?}", self.result),
         }
     }
 
