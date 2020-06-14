@@ -1,5 +1,4 @@
 use crate::symbol::Symbols;
-use std::cell::RefCell;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TypeDecl {

@@ -15,7 +15,7 @@ impl Symbols {
             scopes: vec![],
             table: HashMap::new()
         };
-        //symbol.begin_scope();
+        symbol.begin_scope();
         symbol
     }
 

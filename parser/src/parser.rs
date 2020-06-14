@@ -6,7 +6,6 @@ use crate::ast::{Expression, Program, FunctionDecl, Operator, UnaryOperator, Sta
 use crate::ast::ExpressionDesc::{Malloc, Input, Null, Number, Identifier, Binop, Unop, PointerInvocation};
 use crate::ast::StatementDesc::{VarAssignment, LocalDecl, Output, Return, While, If, PointerAssignment, Block};
 use std::io::Error;
-use crate::symbol::Symbols;
 use std::borrow::BorrowMut;
 
 #[derive(PartialEq)]
@@ -455,15 +454,15 @@ impl<T> Parser<T>
     fn parse_func(&mut self) -> Result<FunctionDecl, Error> {
         let env = self.result.prog_env.clone();
         let mut tmp_func = FunctionDecl::new(env, self.id);
-        tmp_func.fun_env.begin_scope();
+        //tmp_func.fun_env.begin_scope();
         self.next_id();
         if let Some(Ident(fun_name)) = self.tok0.clone() {
             tmp_func.function_name = fun_name;
             self.next_token(); //consume function name
         }
+        self.result.prog_env.enter(tmp_func.function_name.clone(), TypeDecl::FunctionDecl(tmp_func.fun_id));
         tmp_func.paras = self.parse_paras(tmp_func.borrow_mut())?;
         tmp_func.body = self.parse_block(tmp_func.borrow_mut())?;
-        self.result.prog_env.enter(tmp_func.function_name.clone(), TypeDecl::FunctionDecl(tmp_func.fun_id));
 
         Ok(tmp_func)
     }
