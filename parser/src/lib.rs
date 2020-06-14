@@ -8,3 +8,4 @@ mod tests {
 
 pub mod parser;
 pub mod ast;
+pub mod symbol;
