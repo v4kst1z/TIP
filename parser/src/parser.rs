@@ -7,6 +7,7 @@ use crate::ast::ExpressionDesc::{Malloc, Input, Null, Number, Identifier, Binop,
 use crate::ast::StatementDesc::{VarAssignment, LocalDecl, Output, Return, While, If, PointerAssignment, Block};
 use std::io::Error;
 use std::borrow::BorrowMut;
+use crate::symbol::Symbols;
 
 #[derive(PartialEq)]
 pub struct Parser<T: Iterator<Item = Token> + Debug + Clone> {
@@ -267,7 +268,7 @@ impl<T> Parser<T>
         self.relational_expr()
     }
 
-    fn parse_decl_var(&mut self, func_env: &mut FunctionDecl) -> Result<Vec<Expression>, Error> {
+    fn parse_decl_var(&mut self) -> Result<Vec<Expression>, Error> {
         let mut decl_vars = vec![];
 
         loop {
@@ -281,7 +282,7 @@ impl<T> Parser<T>
                 let tmp_decl = ExpressionDesc::Identifier { name: decl_var_name.clone(), id: self.id };
                 self.next_id();
                 decl_vars.push(Expression::new(tmp_decl, self.id));
-                func_env.fun_env.enter(decl_var_name, TypeDecl::LocalDecl(self.id));
+                //func_env.fun_env.enter(decl_var_name, TypeDecl::LocalDecl(self.id));
                 self.next_id();
                 self.next_token();
             }
@@ -340,7 +341,7 @@ impl<T> Parser<T>
             }
             Some(Token::Var)  => {
                 self.next_token();
-                let names = self.parse_decl_var(func_env)?;
+                let names = self.parse_decl_var()?;
                 self.next_token(); //consume ;
                 out = Statement::new(LocalDecl {
                     names
@@ -369,7 +370,7 @@ impl<T> Parser<T>
                 self.next_token();
                 let err_expr = self.parse_expr()?;
                 self.next_token(); //consume ;
-                out = Statement::new(StatementDesc::Error {
+                out = Statement::new(StatementDesc::Err {
                     value: err_expr
                 });
                 Ok(out)
@@ -428,7 +429,7 @@ impl<T> Parser<T>
         }
     }
 
-    fn parse_paras(&mut self, func_env: &mut FunctionDecl) -> Result<Vec<Expression>, Error> {
+    fn parse_paras(&mut self) -> Result<Vec<Expression>, Error> {
         let mut paras = vec![];
         self.next_token(); // consume Lparen
         loop {
@@ -441,7 +442,7 @@ impl<T> Parser<T>
 
             if let Some(Ident(para_name)) = self.tok0.clone() {
                 let tmp_expr = Expression::new(ExpressionDesc::Identifier { name: para_name.clone(), id: 0 }, self.id);
-                func_env.fun_env.enter(para_name, TypeDecl::ParameterDecl(self.id));
+                //func_env.fun_env.enter(para_name, TypeDecl::ParameterDecl(self.id));
                 self.next_id();
                 paras.push(tmp_expr);
 
@@ -452,8 +453,7 @@ impl<T> Parser<T>
     }
 
     fn parse_func(&mut self) -> Result<FunctionDecl, Error> {
-        let env = self.result.prog_env.clone();
-        let mut tmp_func = FunctionDecl::new(env, self.id);
+        let mut tmp_func = FunctionDecl::new(Symbols::new(), self.id);
         //tmp_func.fun_env.begin_scope();
         self.next_id();
         if let Some(Ident(fun_name)) = self.tok0.clone() {
@@ -461,7 +461,7 @@ impl<T> Parser<T>
             self.next_token(); //consume function name
         }
         self.result.prog_env.enter(tmp_func.function_name.clone(), TypeDecl::FunctionDecl(tmp_func.fun_id));
-        tmp_func.paras = self.parse_paras(tmp_func.borrow_mut())?;
+        tmp_func.paras = self.parse_paras()?;
         tmp_func.body = self.parse_block(tmp_func.borrow_mut())?;
 
         Ok(tmp_func)

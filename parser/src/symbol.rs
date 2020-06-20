@@ -11,11 +11,11 @@ pub struct Symbols {
 
 impl Symbols {
     pub fn new() -> Self {
-        let mut symbol = Symbols {
+        let symbol = Symbols {
             scopes: vec![],
             table: HashMap::new()
         };
-        symbol.begin_scope();
+        //symbol.begin_scope();
         symbol
     }
 
@@ -41,11 +41,12 @@ impl Symbols {
         current_scope.push(id);
     }
 
-    pub fn look(&mut self, id: String) -> Option<&TypeDecl> {
+    pub fn look(&self, id: String) -> Option<&TypeDecl> {
         if let Some(bindings) = self.table.get(&id) {
             return bindings.last().to_owned();
         }
         None
     }
+
 
 }

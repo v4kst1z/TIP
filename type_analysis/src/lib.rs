@@ -8,3 +8,4 @@ mod tests {
 
 pub mod constraint;
 pub mod type_check;
+pub mod decl_check;

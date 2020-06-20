@@ -17,11 +17,13 @@ pub struct Program {
 
 impl Program {
     pub fn new() -> Self {
-        Program {
+        let mut prog = Program {
             prog_name: "".to_string(),
             fun_decl: vec![],
             prog_env: Symbols::new()
-        }
+        };
+        prog.prog_env.begin_scope();
+        prog
 
     }
 }
@@ -89,7 +91,7 @@ pub enum StatementDesc {
         body: Statements,
     },
     Return { value: Expression },
-    Error { value: Expression },
+    Err { value: Expression },
     If {
         cond: Expression,
         then: Statements,
