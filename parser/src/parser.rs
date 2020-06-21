@@ -73,9 +73,7 @@ impl<T> Parser<T>
         self.id += 1;
     }
 
-    fn parse_fun_args(
-        &mut self
-    ) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+    fn parse_fun_args(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
 
         let mut args_out = vec![];
         self.next_token(); //consume (
@@ -93,9 +91,7 @@ impl<T> Parser<T>
         Ok(args_out)
     }
 
-    fn expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let out;
         match self.tok0.clone() {
@@ -133,9 +129,7 @@ impl<T> Parser<T>
                 self.next_token();
                 out = Rc::new(
                     RefCell::new(
-                        Expression::new(
-                            Number { value: num as i64, }, self.id
-                        )
+                        Expression::new(Number { value: num as i64, }, self.id)
                     )
                 );
                 self.next_id();
@@ -144,10 +138,7 @@ impl<T> Parser<T>
             Some(Token::Ident(name)) => {
                 if let Some(Token::Lparen) = self.tok1 {
                     let call_fun = RefCell::new(
-                        Expression::new(
-                            ExpressionDesc::Identifier {name, id: 0 },
-                            self.id
-                        )
+                        Expression::new(ExpressionDesc::Identifier {name, id: 0 }, self.id)
                     );
                     self.next_id();
                     self.next_token();   //consume function name
@@ -156,10 +147,7 @@ impl<T> Parser<T>
                     out = Rc::new(
                         RefCell::new(
                             Expression::new(
-                                ExpressionDesc::Call {
-                                    function_name: Rc::new(call_fun),
-                                    args
-                                },
+                                ExpressionDesc::Call { function_name: Rc::new(call_fun), args },
                                 self.id
                             )
                         )
@@ -170,10 +158,7 @@ impl<T> Parser<T>
                     self.next_token();
                     out = Rc::new(
                         RefCell::new(
-                            Expression::new(
-                                Identifier { name, id: 0 },
-                                self.id
-                            )
+                            Expression::new(Identifier { name, id: 0 }, self.id)
                         )
                     );
                     self.next_id();
@@ -189,10 +174,7 @@ impl<T> Parser<T>
                     out = Rc::new(
                         RefCell::new(
                             Expression::new(
-                                PointerInvocation {
-                                    function_name: expr,
-                                    args,
-                                },
+                                PointerInvocation { function_name: expr, args, },
                                 self.id
                             )
                         )
@@ -213,10 +195,7 @@ impl<T> Parser<T>
                     out = Rc::new(
                         RefCell::new(
                             Expression::new(
-                                ExpressionDesc::Call {
-                                    function_name: expr,
-                                    args
-                                },
+                                ExpressionDesc::Call { function_name: expr, args },
                                 self.id
                             )
                         )
@@ -233,9 +212,7 @@ impl<T> Parser<T>
         }
     }
 
-    fn unary_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn unary_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let out;
         match self.tok0 {
@@ -244,10 +221,7 @@ impl<T> Parser<T>
                 let expr = self.unary_expr()?;
                 out = Rc::new(
                     RefCell::new(
-                        Expression::new(Unop {
-                            op: UnaryOperator::Dereference,
-                            a: expr
-                        }, self.id)
+                        Expression::new(Unop { op: UnaryOperator::Dereference, a: expr }, self.id)
                     )
                 );
                 self.next_id();
@@ -295,9 +269,7 @@ impl<T> Parser<T>
         }
     }
 
-    fn multiplicative_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn multiplicative_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let mut expr = self.unary_expr()?;
         loop {
@@ -327,9 +299,7 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn additive_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn additive_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let mut expr = self.multiplicative_expr()?;
         loop {
@@ -360,9 +330,7 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn relational_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn relational_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let mut expr = self.additive_expr()?;
         loop {
@@ -392,15 +360,11 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn parse_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn parse_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
         self.relational_expr()
     }
 
-    fn parse_decl_var(
-        &mut self
-    ) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+    fn parse_decl_var(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
 
         let mut decl_vars = vec![];
 
@@ -434,9 +398,7 @@ impl<T> Parser<T>
         Ok(decl_vars)
     }
 
-    fn parse_cond_expr(
-        &mut self
-    ) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn parse_cond_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
 
         self.next_token(); //consume (
         let cond_expr = self.parse_expr()?;
