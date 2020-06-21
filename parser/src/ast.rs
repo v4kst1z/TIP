@@ -1,4 +1,6 @@
 use crate::symbol::Symbols;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TypeDecl {
@@ -33,7 +35,7 @@ pub type FunctionDecls = Vec<FunctionDecl>;
 #[derive(Debug, PartialEq)]
 pub struct FunctionDecl {
     pub function_name: String,
-    pub paras: Vec<Expression>,
+    pub paras: Vec<Rc<RefCell<Expression>>>,
     pub body: Statements,
     pub fun_id: u64,
     pub fun_env: Symbols
@@ -73,27 +75,27 @@ impl Statement {
 #[derive(Debug, PartialEq)]
 pub enum StatementDesc {
     VarAssignment{
-        target: Box<Expression>,
-        value: Box<Expression>,
+        target: Rc<RefCell<Expression>>,
+        value: Rc<RefCell<Expression>>,
     },
     PointerAssignment {
-        target: Box<Expression>,
-        value: Box<Expression>,
+        target: Rc<RefCell<Expression>>,
+        value: Rc<RefCell<Expression>>,
     },
     LocalDecl {
-        names: Vec<Expression>,
+        names: Vec<Rc<RefCell<Expression>>>,
     },
     Output {
-        target: Expression,
+        target: Rc<RefCell<Expression>>,
     },
     While {
-        cond: Expression,
+        cond: Rc<RefCell<Expression>>,
         body: Statements,
     },
-    Return { value: Expression },
-    Err { value: Expression },
+    Return { value: Rc<RefCell<Expression>> },
+    Err { value: Rc<RefCell<Expression>> },
     If {
-        cond: Expression,
+        cond: Rc<RefCell<Expression>>,
         then: Statements,
         orelse: Option<Statements>,
     },
@@ -102,7 +104,7 @@ pub enum StatementDesc {
     }
 }
 
-pub type Expressions = Vec<Expression>;
+pub type Expressions = Vec<Rc<RefCell<Expression>>>;
 
 #[derive(Debug, PartialEq)]
 pub struct Expression {
@@ -133,21 +135,21 @@ pub enum ExpressionDesc {
         id: u64,
     },
     Binop {
-        a: Box<Expression>,
+        a: Rc<RefCell<Expression>>,
         op: Operator,
-        b: Box<Expression>,
+        b: Rc<RefCell<Expression>>,
     },
     Unop {
         op: UnaryOperator,
-        a: Box<Expression>,
+        a: Rc<RefCell<Expression>>,
     },
     Call {
-        function_name: Box<Expression>,
-        args: Vec<Expression>,
+        function_name: Rc<RefCell<Expression>>,
+        args: Vec<Rc<RefCell<Expression>>>,
     },
     PointerInvocation {
-        function_name: Box<Expression>,
-        args: Vec<Expression>,
+        function_name: Rc<RefCell<Expression>>,
+        args: Vec<Rc<RefCell<Expression>>>,
     },
 }
 
@@ -169,7 +171,7 @@ pub enum Operator {
     Eq,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum UnaryOperator {
     Minus,
     Pointer,

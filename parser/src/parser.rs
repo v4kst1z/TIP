@@ -1,13 +1,46 @@
 use lexer::token::Token;
 use std::fmt::Debug;
 use crate::ast::*;
-use lexer::token::Token::{Ident, Rparen, Comma};
-use crate::ast::{Expression, Program, FunctionDecl, Operator, UnaryOperator, Statements, Statement, ExpressionDesc};
-use crate::ast::ExpressionDesc::{Malloc, Input, Null, Number, Identifier, Binop, Unop, PointerInvocation};
-use crate::ast::StatementDesc::{VarAssignment, LocalDecl, Output, Return, While, If, PointerAssignment, Block};
+use lexer::token::Token::{
+    Ident,
+    Rparen,
+    Comma
+};
+use crate::ast::{
+    Expression,
+    Program,
+    FunctionDecl,
+    Operator,
+    UnaryOperator,
+    Statements,
+    Statement,
+    ExpressionDesc
+};
+use crate::ast::ExpressionDesc::{
+    Malloc,
+    Input,
+    Null,
+    Number,
+    Identifier,
+    Binop,
+    Unop,
+    PointerInvocation
+};
+use crate::ast::StatementDesc::{
+    VarAssignment,
+    LocalDecl,
+    Output,
+    Return,
+    While,
+    If,
+    PointerAssignment,
+    Block
+};
 use std::io::Error;
 use std::borrow::BorrowMut;
 use crate::symbol::Symbols;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(PartialEq)]
 pub struct Parser<T: Iterator<Item = Token> + Debug + Clone> {
@@ -40,7 +73,10 @@ impl<T> Parser<T>
         self.id += 1;
     }
 
-    fn parse_fun_args(&mut self) -> Result<Vec<Expression>, Error> {
+    fn parse_fun_args(
+        &mut self
+    ) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+
         let mut args_out = vec![];
         self.next_token(); //consume (
         loop {
@@ -57,54 +93,89 @@ impl<T> Parser<T>
         Ok(args_out)
     }
 
-    fn expr(&mut self) -> Result<Expression, Error> {
+    fn expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         let out;
         match self.tok0.clone() {
             Some(Token::Alloc) => {
                 self.next_token();
-                out = Expression::new(Malloc, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Malloc, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Input) => {
                 self.next_token();
-                out = Expression::new(Input, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Input, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Null) => {
                 self.next_token();
-                out = Expression::new(Null, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Null, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Number(num)) => {
                 self.next_token();
-                out = Expression::new(Number {
-                    value: num as i64,
-                }, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(
+                            Number { value: num as i64, }, self.id
+                        )
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Ident(name)) => {
                 if let Some(Token::Lparen) = self.tok1 {
-                    let call_fun = Box::new(Expression::new(ExpressionDesc::Identifier {name, id: 0 }, self.id));
+                    let call_fun = RefCell::new(
+                        Expression::new(
+                            ExpressionDesc::Identifier {name, id: 0 },
+                            self.id
+                        )
+                    );
                     self.next_id();
                     self.next_token();   //consume function name
                     let args = self.parse_fun_args()?;
                     //parse function arguments
-                    out = Expression::new(ExpressionDesc::Call {
-                        function_name: call_fun,
-                        args
-                    }, self.id);
+                    out = Rc::new(
+                        RefCell::new(
+                            Expression::new(
+                                ExpressionDesc::Call {
+                                    function_name: Rc::new(call_fun),
+                                    args
+                                },
+                                self.id
+                            )
+                        )
+                    );
                     self.next_id();
                     Ok(out)
                 } else {
                     self.next_token();
-                    out = Expression::new(Identifier {
-                        name,
-                        id: 0
-                    }, self.id);
+                    out = Rc::new(
+                        RefCell::new(
+                            Expression::new(
+                                Identifier { name, id: 0 },
+                                self.id
+                            )
+                        )
+                    );
                     self.next_id();
                     Ok(out)
                 }
@@ -115,10 +186,17 @@ impl<T> Parser<T>
                 if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
                     self.next_token();
                     let args = self.parse_fun_args()?;
-                    out = Expression::new(PointerInvocation {
-                        function_name: Box::new(expr),
-                        args,
-                    }, self.id);
+                    out = Rc::new(
+                        RefCell::new(
+                            Expression::new(
+                                PointerInvocation {
+                                    function_name: expr,
+                                    args,
+                                },
+                                self.id
+                            )
+                        )
+                    );
                     self.next_id();
                     Ok(out)
                 } else {
@@ -132,10 +210,17 @@ impl<T> Parser<T>
                 if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
                     self.next_token();
                     let args = self.parse_fun_args()?;
-                    out = Expression::new(ExpressionDesc::Call {
-                        function_name: Box::new(expr),
-                        args
-                    }, self.id);
+                    out = Rc::new(
+                        RefCell::new(
+                            Expression::new(
+                                ExpressionDesc::Call {
+                                    function_name: expr,
+                                    args
+                                },
+                                self.id
+                            )
+                        )
+                    );
                     self.next_id();
                     Ok(out)
                 } else {
@@ -148,39 +233,61 @@ impl<T> Parser<T>
         }
     }
 
-    fn unary_expr(&mut self) -> Result<Expression, Error> {
+    fn unary_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         let out;
         match self.tok0 {
             Some(Token::Mult) => {
                 self.next_token(); //consume *
                 let expr = self.unary_expr()?;
-                out = Expression::new(Unop {
-                    op: UnaryOperator::Dereference,
-                    a: Box::new(expr)
-                }, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Unop {
+                            op: UnaryOperator::Dereference,
+                            a: expr
+                        }, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Ampersand) => {
                 self.next_token(); //consume &
                 let expr = self.unary_expr()?;
-                out = Expression::new(Unop {
-                    op: UnaryOperator::Pointer,
-                    a: Box::new(expr)
-                }, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Unop {
+                            op: UnaryOperator::Pointer,
+                            a: expr
+                        }, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
             Some(Token::Sub) => {
                 self.next_token(); //consume -
                 let expr = self.unary_expr()?;
-                let expr1 = Expression::new(ExpressionDesc::Number { value: 0 }, self.id);
+                let expr1 = Rc::new(
+                    RefCell::new(
+                        Expression::new(
+                            ExpressionDesc::Number { value: 0 },
+                            self.id
+                        )
+                    )
+                );
                 self.next_id();
-                out = Expression::new(Binop {
-                    a: Box::new(expr1),
-                    op: Operator::Sub,
-                    b: Box::new(expr)
-                }, self.id);
+                out = Rc::new(
+                    RefCell::new(
+                        Expression::new(Binop {
+                            a: expr1,
+                            op: Operator::Sub,
+                            b: expr
+                        }, self.id)
+                    )
+                );
                 self.next_id();
                 Ok(out)
             }
@@ -188,7 +295,10 @@ impl<T> Parser<T>
         }
     }
 
-    fn multiplicative_expr(&mut self) -> Result<Expression, Error> {
+    fn multiplicative_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         let mut expr = self.unary_expr()?;
         loop {
             let operator = match self.tok0 {
@@ -202,18 +312,25 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = Box::new(self.unary_expr()?);
-            expr = Expression::new(Binop {
-                a: Box::new(expr),
-                op: operator,
-                b: right
-            }, self.id);
+            let right = self.unary_expr()?;
+            expr = Rc::new(
+                RefCell::new(
+                    Expression::new(Binop {
+                        a: expr,
+                        op: operator,
+                        b: right
+                    }, self.id)
+                )
+            );
             self.next_id();
         }
         Ok(expr)
     }
 
-    fn additive_expr(&mut self) -> Result<Expression, Error> {
+    fn additive_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         let mut expr = self.multiplicative_expr()?;
         loop {
             let operator = match self.tok0 {
@@ -227,19 +344,26 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = Box::new(self.multiplicative_expr()?);
-            expr = Expression::new(Binop {
-                a: Box::new(expr),
-                op: operator,
-                b: right
-            }, self.id);
+            let right = self.multiplicative_expr()?;
+            expr = Rc::new(
+                RefCell::new(
+                    Expression::new(Binop {
+                        a: expr,
+                        op: operator,
+                        b: right
+                    }, self.id)
+                )
+            );
             self.next_id();
         }
 
         Ok(expr)
     }
 
-    fn relational_expr(&mut self) -> Result<Expression, Error> {
+    fn relational_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         let mut expr = self.additive_expr()?;
         loop {
             let operator = match self.tok0 {
@@ -253,22 +377,31 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = Box::new(self.additive_expr()?);
-            expr = Expression::new(Binop {
-                a: Box::new(expr),
-                op: operator,
-                b: right
-            }, self.id);
+            let right = self.additive_expr()?;
+            expr = Rc::new(
+                RefCell::new(
+                    Expression::new(Binop {
+                        a: expr,
+                        op: operator,
+                        b: right
+                    }, self.id)
+                )
+            );
             self.next_id();
         }
         Ok(expr)
     }
 
-    fn parse_expr(&mut self) -> Result<Expression, Error> {
+    fn parse_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
         self.relational_expr()
     }
 
-    fn parse_decl_var(&mut self) -> Result<Vec<Expression>, Error> {
+    fn parse_decl_var(
+        &mut self
+    ) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+
         let mut decl_vars = vec![];
 
         loop {
@@ -279,9 +412,18 @@ impl<T> Parser<T>
             }
 
             if let Some(Ident(decl_var_name)) = self.tok0.clone() {
-                let tmp_decl = ExpressionDesc::Identifier { name: decl_var_name.clone(), id: self.id };
+                let tmp_decl = ExpressionDesc::Identifier {
+                    name: decl_var_name.clone(),
+                    id: self.id
+                };
                 self.next_id();
-                decl_vars.push(Expression::new(tmp_decl, self.id));
+                decl_vars.push(
+                    Rc::new(
+                        RefCell::new(
+                            Expression::new(tmp_decl, self.id)
+                        )
+                    )
+                );
                 //func_env.fun_env.enter(decl_var_name, TypeDecl::LocalDecl(self.id));
                 self.next_id();
                 self.next_token();
@@ -292,7 +434,10 @@ impl<T> Parser<T>
         Ok(decl_vars)
     }
 
-    fn parse_cond_expr(&mut self) -> Result<Expression, Error> {
+    fn parse_cond_expr(
+        &mut self
+    ) -> Result<Rc<RefCell<Expression>>, Error> {
+
         self.next_token(); //consume (
         let cond_expr = self.parse_expr()?;
         self.next_token(); // consume )
@@ -300,7 +445,11 @@ impl<T> Parser<T>
         Ok(cond_expr)
     }
 
-    fn parse_block(&mut self, func_env: &mut FunctionDecl) -> Result<Statements, Error> {
+    fn parse_block(
+        &mut self,
+        func_env: &mut FunctionDecl
+    ) -> Result<Statements, Error> {
+
         let mut stmts = vec![];
         if self.tok0 == Some(Token::Lcurly) {
             self.next_token(); // consume {
@@ -318,7 +467,11 @@ impl<T> Parser<T>
     }
 
 
-    fn parse_stmt(&mut self, func_env: &mut FunctionDecl) -> Result<Statement, Error> {
+    fn parse_stmt(
+        &mut self,
+        func_env: &mut FunctionDecl
+    ) -> Result<Statement, Error> {
+
         let out;
         match self.tok0.clone() {
             Some(Ident(var_name)) => {
@@ -328,11 +481,21 @@ impl<T> Parser<T>
                     self.next_token();
                     let value = self.parse_expr()?;
                     self.next_token(); //consume ;
-                    let tmp_expr = Expression::new(ExpressionDesc::Identifier {name: var_name, id: 0 }, self.id);
+                    let tmp_expr = Rc::new(
+                        RefCell::new(
+                            Expression::new(
+                                ExpressionDesc::Identifier {
+                                    name: var_name,
+                                    id: 0
+                                },
+                                self.id
+                            )
+                        )
+                    );
                     self.next_id();
                     out = Statement::new(VarAssignment {
-                        target: Box::new(tmp_expr),
-                        value: Box::new(value)
+                        target: tmp_expr,
+                        value: value
                     });
                     Ok(out)
                 } else {
@@ -352,18 +515,22 @@ impl<T> Parser<T>
                 self.next_token();
                 let out_expr = self.parse_expr()?;
                 self.next_token(); //consume ;
-                out = Statement::new(Output {
-                    target: out_expr,
-                });
+                out = Statement::new(
+                    Output {
+                        target: out_expr,
+                    }
+                );
                 Ok(out)
             }
             Some(Token::Return) => {
                 self.next_token();
                 let ret_expr = self.parse_expr()?;
                 self.next_token(); //consume ;
-                out = Statement::new(Return {
-                    value: ret_expr,
-                });
+                out = Statement::new(
+                    Return {
+                        value: ret_expr,
+                    }
+                );
                 Ok(out)
             }
             Some(Token::Error) => {
@@ -414,8 +581,8 @@ impl<T> Parser<T>
                 let right = self.parse_expr()?;
                 self.next_token(); //consume ;
                 out = Statement::new(PointerAssignment {
-                    target: Box::new(left),
-                    value: Box::new(right),
+                    target: left,
+                    value: right,
                 });
                 Ok(out)
             }
@@ -429,7 +596,7 @@ impl<T> Parser<T>
         }
     }
 
-    fn parse_paras(&mut self) -> Result<Vec<Expression>, Error> {
+    fn parse_paras(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
         let mut paras = vec![];
         self.next_token(); // consume Lparen
         loop {
@@ -441,7 +608,17 @@ impl<T> Parser<T>
             }
 
             if let Some(Ident(para_name)) = self.tok0.clone() {
-                let tmp_expr = Expression::new(ExpressionDesc::Identifier { name: para_name.clone(), id: 0 }, self.id);
+                let tmp_expr = Rc::new(
+                    RefCell::new(
+                        Expression::new(
+                            ExpressionDesc::Identifier {
+                                name: para_name.clone(),
+                                id: 0
+                            },
+                            self.id
+                        )
+                    )
+                );
                 //func_env.fun_env.enter(para_name, TypeDecl::ParameterDecl(self.id));
                 self.next_id();
                 paras.push(tmp_expr);
@@ -453,14 +630,20 @@ impl<T> Parser<T>
     }
 
     fn parse_func(&mut self) -> Result<FunctionDecl, Error> {
-        let mut tmp_func = FunctionDecl::new(Symbols::new(), self.id);
+        let mut tmp_func = FunctionDecl::new(
+            Symbols::new(),
+            self.id
+        );
         //tmp_func.fun_env.begin_scope();
         self.next_id();
         if let Some(Ident(fun_name)) = self.tok0.clone() {
             tmp_func.function_name = fun_name;
             self.next_token(); //consume function name
         }
-        self.result.prog_env.enter(tmp_func.function_name.clone(), TypeDecl::FunctionDecl(tmp_func.fun_id));
+        self.result.prog_env.enter(
+            tmp_func.function_name.clone(),
+            TypeDecl::FunctionDecl(tmp_func.fun_id)
+        );
         tmp_func.paras = self.parse_paras()?;
         tmp_func.body = self.parse_block(tmp_func.borrow_mut())?;
 
