@@ -85,6 +85,21 @@ fn check_id(expr: &ExpressionDesc,  global: &Symbols) -> bool {
     return false;
 }
 
+fn check_point_assign_id(expr: &ExpressionDesc,  global: &Symbols) -> bool {
+    if let Some(name) = get_id(expr.borrow()) {
+        return match global.look(name.clone()).expect("Identifier used but not declared.") {
+            TypeDecl::FunctionDecl(_0) => {
+                println!("Identifier {} used but not declared.", name);
+                false
+            }
+            _ => {
+                true
+            }
+        }
+    }
+    return false;
+}
+
 fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
     return match &stmt.stmt {
         StatementDesc::VarAssignment { target, value } => {
@@ -96,9 +111,13 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
             if let ExpressionDesc::Unop {  op,  a } = target_expr {
                 if let UnaryOperator::Dereference = op {
                     let a_expr = &a.as_ref().borrow().expr;
-                    let mut out = check_id(a_expr, global);
-                    out = out && decl_check_expr(value.borrow(), global.to_owned());
-                    return out;
+                    return if let ExpressionDesc::Identifier { name: _, id: _ } = a_expr {
+                        let mut out = check_point_assign_id(a_expr, global);
+                        out = out && decl_check_expr(value.borrow(), global.to_owned());
+                        out
+                    } else {
+                        decl_check_expr(a, global.to_owned())
+                    }
                 }
             }
             false
