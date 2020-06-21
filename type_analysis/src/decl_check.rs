@@ -1,9 +1,22 @@
-use parser::ast::{Program, FunctionDecl, Statement, Expression, StatementDesc, ExpressionDesc, TypeDecl, UnaryOperator};
 use parser::symbol::Symbols;
 use std::borrow::{BorrowMut, Borrow};
+use std::cell::RefCell;
+use std::rc::Rc;
+use parser::ast::{
+    Program,
+    FunctionDecl,
+    Statement,
+    Expression,
+    StatementDesc,
+    ExpressionDesc,
+    TypeDecl,
+    UnaryOperator
+};
 
-fn decl_check_expr(expr: &Expression, global: Symbols) -> bool {
-    match &expr.expr {
+
+fn decl_check_expr(expr: & Rc<RefCell<Expression>>, global: Symbols) -> bool {
+    let tmp_expr = &*expr.as_ref().borrow();
+    match &tmp_expr.expr {
         ExpressionDesc::Identifier { name, id: _ } => {
             if let Some(_) = global.look(name.clone()) {
                 return true;
@@ -12,22 +25,27 @@ fn decl_check_expr(expr: &Expression, global: Symbols) -> bool {
             return false;
         }
         ExpressionDesc::Binop { a, op: _, b } => {
-            return decl_check_expr((*a).borrow(), global.clone()) && decl_check_expr((*b).borrow(), global);
+            return decl_check_expr(
+                a,
+                global.clone()) && decl_check_expr(b, global
+            );
         }
         ExpressionDesc::Unop { op:_, a } => {
-            return decl_check_expr((*a).borrow(), global.clone());
+            return decl_check_expr(a, global.clone());
         }
         ExpressionDesc::Call { function_name, args } => {
-            let mut out = check_fun_id(function_name.expr.borrow(), global.clone());
+            let mut out = check_fun_id(function_name.as_ref().borrow().expr.borrow(), global.clone());
             for expr in args.iter() {
                 out = out && decl_check_expr(expr, global.clone());
             }
             return out;
         }
         ExpressionDesc::PointerInvocation { function_name, args } => {
-            if let ExpressionDesc::Unop { op, a } = &function_name.expr {
+            if let ExpressionDesc::Unop { ref  op, ref a } = function_name.as_ref().borrow().expr {
                 if let UnaryOperator::Dereference = op {
-                    let mut out = check_id(a.expr.borrow(), global.borrow()) ;
+                    //let tmp_a = a.clone();
+                    let e_expr =  &*a.as_ref().borrow();
+                    let mut out = check_id(e_expr.expr.borrow(), global.borrow()) ;
                     for expr in args.iter() {
                         out = out && decl_check_expr(expr, global.clone());
                     }
@@ -70,13 +88,16 @@ fn check_id(expr: &ExpressionDesc,  global: &Symbols) -> bool {
 fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
     return match &stmt.stmt {
         StatementDesc::VarAssignment { target, value } => {
-            check_id(target.expr.borrow(), global) && decl_check_expr((*value).borrow(), global.to_owned())
+            let target_expr = &target.as_ref().borrow().expr;
+            check_id(target_expr, global) && decl_check_expr(value.borrow(), global.to_owned())
         }
         StatementDesc::PointerAssignment { target, value } => {
-            if let ExpressionDesc::Unop { op, a } = &target.expr {
+            let target_expr = &target.as_ref().borrow().expr;
+            if let ExpressionDesc::Unop {  op,  a } = target_expr {
                 if let UnaryOperator::Dereference = op {
-                    let mut out = check_id(a.expr.borrow(), global);
-                    out = out && decl_check_expr((*value).borrow(), global.to_owned());
+                    let a_expr = &a.as_ref().borrow().expr;
+                    let mut out = check_id(a_expr, global);
+                    out = out && decl_check_expr(value.borrow(), global.to_owned());
                     return out;
                 }
             }
@@ -84,8 +105,13 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
         }
         StatementDesc::LocalDecl { names } => {
             for expr in names.iter() {
-                if let ExpressionDesc::Identifier { name, id } = &expr.expr {
-                    global.enter(name.to_string(), TypeDecl::LocalDecl(*id));
+                let tmp_expr = &expr.as_ref().borrow().expr;
+                if let ExpressionDesc::Identifier { name, id } = tmp_expr {
+                    if let None = global.look(name.clone()) {
+                        global.enter(name.to_string(), TypeDecl::LocalDecl(*id));
+                    } else {
+                        return false;
+                    }
                 } else {
                     return false;
                 }
@@ -132,8 +158,9 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
 
 fn decl_check_fun(fun: &mut FunctionDecl, global: Symbols) -> bool {
     fun.fun_env = global;
-    for para in fun.paras.iter() {
-        if let ExpressionDesc::Identifier { name, id } = &para.expr {
+    for para in fun.paras.iter_mut() {
+        let tmp_expr = &para.as_ref().borrow().expr;
+        if let ExpressionDesc::Identifier { name, id } = tmp_expr {
             fun.fun_env.enter(name.to_string(), TypeDecl::ParameterDecl(*id));
         }
     }
@@ -146,7 +173,7 @@ fn decl_check_fun(fun: &mut FunctionDecl, global: Symbols) -> bool {
     true
 }
 
-pub fn decl_check(mut prog: Program) -> bool {
+pub fn decl_check(prog: &mut Program) -> bool {
     let global_fun = prog.prog_env.clone();
     let mut out = true;
     for fun in prog.fun_decl.iter_mut() {
