@@ -14,7 +14,7 @@ use parser::ast::{
 };
 
 
-fn decl_check_expr(expr: & Rc<RefCell<Expression>>, global: Symbols) -> bool {
+fn decl_check_expr(expr: Rc<RefCell<Expression>>, global: Symbols) -> bool {
     let tmp_expr = &*expr.as_ref().borrow();
     match &tmp_expr.expr {
         ExpressionDesc::Identifier { name, id: _ } => {
@@ -26,17 +26,17 @@ fn decl_check_expr(expr: & Rc<RefCell<Expression>>, global: Symbols) -> bool {
         }
         ExpressionDesc::Binop { a, op: _, b } => {
             return decl_check_expr(
-                a,
-                global.clone()) && decl_check_expr(b, global
+                a.clone(),
+                global.clone()) && decl_check_expr(b.clone(), global
             );
         }
         ExpressionDesc::Unop { op:_, a } => {
-            return decl_check_expr(a, global.clone());
+            return decl_check_expr(a.clone(), global.clone());
         }
         ExpressionDesc::Call { function_name, args } => {
             let mut out = check_fun_id(function_name.as_ref().borrow().expr.borrow(), global.clone());
             for expr in args.iter() {
-                out = out && decl_check_expr(expr, global.clone());
+                out = out && decl_check_expr(expr.clone(), global.clone());
             }
             return out;
         }
@@ -47,7 +47,7 @@ fn decl_check_expr(expr: & Rc<RefCell<Expression>>, global: Symbols) -> bool {
                     let e_expr =  &*a.as_ref().borrow();
                     let mut out = check_id(e_expr.expr.borrow(), global.borrow()) ;
                     for expr in args.iter() {
-                        out = out && decl_check_expr(expr, global.clone());
+                        out = out && decl_check_expr(expr.clone(), global.clone());
                     }
                     return out;
                 }
@@ -104,7 +104,7 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
     return match &stmt.stmt {
         StatementDesc::VarAssignment { target, value } => {
             let target_expr = &target.as_ref().borrow().expr;
-            check_id(target_expr, global) && decl_check_expr(value.borrow(), global.to_owned())
+            check_id(target_expr, global) && decl_check_expr(value.clone(), global.to_owned())
         }
         StatementDesc::PointerAssignment { target, value } => {
             let target_expr = &target.as_ref().borrow().expr;
@@ -113,10 +113,10 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
                     let a_expr = &a.as_ref().borrow().expr;
                     return if let ExpressionDesc::Identifier { name: _, id: _ } = a_expr {
                         let mut out = check_point_assign_id(a_expr, global);
-                        out = out && decl_check_expr(value.borrow(), global.to_owned());
+                        out = out && decl_check_expr(value.clone(), global.to_owned());
                         out
                     } else {
-                        decl_check_expr(a, global.to_owned())
+                        decl_check_expr(a.clone(), global.to_owned())
                     }
                 }
             }
@@ -138,23 +138,23 @@ fn decl_check_stmt(stmt: &Statement,  global: &mut Symbols) -> bool {
             true
         }
         StatementDesc::Output { target } => {
-            decl_check_expr(target.borrow(), global.to_owned())
+            decl_check_expr(target.clone(), global.to_owned())
         }
         StatementDesc::Return { value } => {
-            decl_check_expr(value.borrow(), global.to_owned())
+            decl_check_expr(value.clone(), global.to_owned())
         }
         StatementDesc::Err { value } => {
-            decl_check_expr(value.borrow(), global.to_owned())
+            decl_check_expr(value.clone(), global.to_owned())
         }
         StatementDesc::While { cond, body } => {
-            let mut out = decl_check_expr(cond.borrow(), global.to_owned());
+            let mut out = decl_check_expr(cond.clone(), global.to_owned());
             for stmt in body.iter() {
                 out = out && decl_check_stmt(stmt, global);
             }
             out
         }
         StatementDesc::If { cond, then, orelse } => {
-            let mut out = decl_check_expr(cond.borrow(), global.to_owned());
+            let mut out = decl_check_expr(cond.clone(), global.to_owned());
             for stmt in then.iter() {
                 out = out && decl_check_stmt(stmt, global);
             }
