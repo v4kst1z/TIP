@@ -21,8 +21,8 @@ use crate::constraint::TypeVar::{
 };
 
 
-#[derive(Debug, PartialEq)]
-enum TypeVar {
+#[derive(Debug, PartialEq, Clone)]
+pub enum TypeVar {
     Alpha(usize),
     Int,
     ExpTy(Rc<RefCell<Expression>>),
@@ -30,8 +30,8 @@ enum TypeVar {
     FunctionTy(Vec<Box<TypeVar>>, Box<TypeVar>)
 }
 
-#[derive(Debug, PartialEq)]
-pub struct TypeConstraint(TypeVar, TypeVar);
+#[derive(Debug, PartialEq, Clone)]
+pub struct TypeConstraint(pub TypeVar, pub TypeVar);
 
 fn get_expr_id(env: &Symbols, name: String) -> u64 {
     *match env.look(name).unwrap() {
@@ -101,6 +101,7 @@ fn generate_type_constraints_from_exp(
 
             constraints.push(TypeConstraint(ExpTy(a.clone()), Int));
             constraints.push(TypeConstraint(ExpTy(b.clone()), Int));
+            constraints.push(TypeConstraint(ExpTy(b.clone()), ExpTy(a.clone())));
             constraints.push(TypeConstraint(ExpTy(expr.clone()), Int));
             return constraints;
         }
@@ -158,7 +159,6 @@ fn generate_type_constraints_from_exp(
             }
             let mut para_cons = vec![];
             for para in args.iter() {
-                println!("{:?}", para);
                 let para_name = get_name(para.as_ref().borrow().expr.borrow());
                 unsafe {
                     (*para.as_ptr()).expr_id = get_expr_id(env, para_name.unwrap());
@@ -293,12 +293,31 @@ fn generate_type_constraints_from_fun(
     fun: &mut FunctionDecl,
     mut constraints: Vec<TypeConstraint>,
 ) -> Vec<TypeConstraint> {
-    for stmt in fun.body.iter_mut().rev() {
+    for stmt in fun.body.iter_mut() {
         constraints = generate_type_constraints_from_stmt(
             stmt,
             constraints,
             fun.fun_env.borrow()
         );
+    }
+    if let Some(Statement { stmt }) = fun.body.last() {
+        match stmt {
+            StatementDesc::Return { value } => {
+                let fun_name = fun.function_name.clone();
+                let fun_id = get_expr_id(fun.fun_env.borrow(), fun_name.clone());
+                let expr_desc = ExpressionDesc::Identifier { name: fun_name, id: fun_id };
+                let function_name = Expression::new(expr_desc, 0);
+                let mut para_cons = vec![];
+                for para in fun.paras.iter() {
+                    para_cons.push(Box::new(ExpTy(para.clone())));
+                }
+                constraints.push(TypeConstraint(
+                    ExpTy(Rc::new(RefCell::new(function_name))),
+                    FunctionTy(para_cons, Box::new(ExpTy(value.clone())))
+                ));
+            }
+            _ => panic!("Internal error in type checking: Expected return statement.")
+        }
     }
     constraints
 }
@@ -307,7 +326,7 @@ pub fn generate_type_constraints_from_prog(
     prog: & mut Program,
 ) -> Vec<TypeConstraint> {
     let mut constraints = vec![];
-    for fun in prog.fun_decl.iter_mut().rev() {
+    for fun in prog.fun_decl.iter_mut() {
         constraints = generate_type_constraints_from_fun(
             fun,
             constraints

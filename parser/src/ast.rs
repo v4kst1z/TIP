@@ -1,6 +1,7 @@
 use crate::symbol::Symbols;
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::fmt;
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum TypeDecl {
@@ -9,7 +10,7 @@ pub enum TypeDecl {
     LocalDecl(u64)
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Program {
     pub prog_name: String,
     pub fun_decl: FunctionDecls,
@@ -30,9 +31,19 @@ impl Program {
     }
 }
 
+impl fmt::Debug for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[*] prog name : {:?}\n", self.prog_name)?;
+        for fun in self.fun_decl.iter() {
+            write!(f, "{:?}\n", fun)?;
+        }
+        Ok(())
+    }
+}
+
 pub type FunctionDecls = Vec<FunctionDecl>;
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct FunctionDecl {
     pub function_name: String,
     pub paras: Vec<Rc<RefCell<Expression>>>,
@@ -40,6 +51,15 @@ pub struct FunctionDecl {
     pub fun_id: u64,
     pub fun_env: Symbols
 
+}
+
+impl fmt::Debug for FunctionDecl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "[*] function name : {:?}\n", self.function_name)?;
+        write!(f, "[*] paras : {:?}\n", self.paras)?;
+        write!(f, "[*] bosy : {:?}\n", self.body)?;
+        Ok(())
+    }
 }
 
 impl FunctionDecl {
@@ -57,9 +77,16 @@ impl FunctionDecl {
 
 pub type Statements = Vec<Statement>;
 
-#[derive(Debug, PartialEq)]
+#[derive(PartialEq)]
 pub struct Statement {
     pub stmt: StatementDesc,
+}
+
+impl fmt::Debug for Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}\n", self.stmt)?;
+        Ok(())
+    }
 }
 
 impl Statement {

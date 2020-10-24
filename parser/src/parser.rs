@@ -37,7 +37,7 @@ use crate::ast::StatementDesc::{
     Block
 };
 use std::io::Error;
-use std::borrow::BorrowMut;
+use std::borrow::{BorrowMut, Borrow};
 use crate::symbol::Symbols;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -73,7 +73,7 @@ impl<T> Parser<T>
         self.id += 1;
     }
 
-    fn parse_fun_args(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+    fn parse_fun_args(&mut self, fun_name: String) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
 
         let mut args_out = vec![];
         self.next_token(); //consume (
@@ -85,13 +85,13 @@ impl<T> Parser<T>
                 break;
             }
 
-            let tmp_expr = self.parse_expr()?;
+            let tmp_expr = self.parse_expr(fun_name.clone())?;
             args_out.push(tmp_expr);
         }
         Ok(args_out)
     }
 
-    fn expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let out;
         match self.tok0.clone() {
@@ -142,7 +142,7 @@ impl<T> Parser<T>
                     );
                     self.next_id();
                     self.next_token();   //consume function name
-                    let args = self.parse_fun_args()?;
+                    let args = self.parse_fun_args(fun_name.clone())?;
                     //parse function arguments
                     out = Rc::new(
                         RefCell::new(
@@ -156,9 +156,23 @@ impl<T> Parser<T>
                     Ok(out)
                 } else {
                     self.next_token();
+                    let mut var_name: String = fun_name.clone() + &name.clone();
+                    if (self.result.prog_env.scopes.len() == 1 && self.result.prog_env.scopes.get(0).unwrap().contains(name.borrow())) ||
+                        (self.result.prog_env.scopes.len() > 1 && !self.result.prog_env.scopes.last().unwrap().contains(name.borrow())) {
+                        if let Some(decls) = self.result.prog_env.table.get(&name) {
+                            if !decls.is_empty() {
+                                match decls.last().unwrap() {
+                                    TypeDecl::FunctionDecl(_) => {
+                                        var_name = name;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
                     out = Rc::new(
                         RefCell::new(
-                            Expression::new(Identifier { name, id: 0 }, self.id)
+                            Expression::new(Identifier { name: var_name, id: 0 }, self.id)
                         )
                     );
                     self.next_id();
@@ -167,10 +181,10 @@ impl<T> Parser<T>
             }
             Some(Token::Lparen)  if self.tok1 == Some(Token::Mult) => {
                 self.next_token();
-                let expr = self.parse_expr()?;
+                let expr = self.parse_expr(fun_name.clone())?;
                 if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
                     self.next_token();
-                    let args = self.parse_fun_args()?;
+                    let args = self.parse_fun_args(fun_name.clone())?;
                     out = Rc::new(
                         RefCell::new(
                             Expression::new(
@@ -188,10 +202,10 @@ impl<T> Parser<T>
             }
             Some(Token::Lparen)  => {
                 self.next_token();
-                let expr = self.parse_expr()?;
+                let expr = self.parse_expr(fun_name.clone())?;
                 if self.tok0 == Some(Token::Rparen) && self.tok1 == Some(Token::Lparen) {
                     self.next_token();
-                    let args = self.parse_fun_args()?;
+                    let args = self.parse_fun_args(fun_name.clone())?;
                     out = Rc::new(
                         RefCell::new(
                             Expression::new(
@@ -212,13 +226,13 @@ impl<T> Parser<T>
         }
     }
 
-    fn unary_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn unary_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
         let out;
         match self.tok0 {
             Some(Token::Mult) => {
                 self.next_token(); //consume *
-                let expr = self.unary_expr()?;
+                let expr = self.unary_expr(fun_name.clone())?;
                 out = Rc::new(
                     RefCell::new(
                         Expression::new(Unop { op: UnaryOperator::Dereference, a: expr }, self.id)
@@ -229,7 +243,7 @@ impl<T> Parser<T>
             }
             Some(Token::Ampersand) => {
                 self.next_token(); //consume &
-                let expr = self.unary_expr()?;
+                let expr = self.unary_expr(fun_name.clone())?;
                 out = Rc::new(
                     RefCell::new(
                         Expression::new(Unop {
@@ -243,7 +257,7 @@ impl<T> Parser<T>
             }
             Some(Token::Sub) => {
                 self.next_token(); //consume -
-                let expr = self.unary_expr()?;
+                let expr = self.unary_expr(fun_name.clone())?;
                 let expr1 = Rc::new(
                     RefCell::new(
                         Expression::new(
@@ -265,13 +279,13 @@ impl<T> Parser<T>
                 self.next_id();
                 Ok(out)
             }
-            _ => self.expr(),
+            _ => self.expr(fun_name.clone()),
         }
     }
 
-    fn multiplicative_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn multiplicative_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
-        let mut expr = self.unary_expr()?;
+        let mut expr = self.unary_expr(fun_name.clone())?;
         loop {
             let operator = match self.tok0 {
                 Some(Token::Mult) => {
@@ -284,7 +298,7 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = self.unary_expr()?;
+            let right = self.unary_expr(fun_name.clone())?;
             expr = Rc::new(
                 RefCell::new(
                     Expression::new(Binop {
@@ -299,9 +313,9 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn additive_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn additive_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
-        let mut expr = self.multiplicative_expr()?;
+        let mut expr = self.multiplicative_expr(fun_name.clone())?;
         loop {
             let operator = match self.tok0 {
                 Some(Token::Plus) => {
@@ -314,7 +328,7 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = self.multiplicative_expr()?;
+            let right = self.multiplicative_expr(fun_name.clone())?;
             expr = Rc::new(
                 RefCell::new(
                     Expression::new(Binop {
@@ -330,9 +344,9 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn relational_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn relational_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
-        let mut expr = self.additive_expr()?;
+        let mut expr = self.additive_expr(fun_name.clone())?;
         loop {
             let operator = match self.tok0 {
                 Some(Token::Great) => {
@@ -345,7 +359,7 @@ impl<T> Parser<T>
                 }
                 _ => break,
             };
-            let right = self.additive_expr()?;
+            let right = self.additive_expr(fun_name.clone())?;
             expr = Rc::new(
                 RefCell::new(
                     Expression::new(Binop {
@@ -360,11 +374,11 @@ impl<T> Parser<T>
         Ok(expr)
     }
 
-    fn parse_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
-        self.relational_expr()
+    fn parse_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
+        self.relational_expr(fun_name)
     }
 
-    fn parse_decl_var(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+    fn parse_decl_var(&mut self, fun_name: String) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
 
         let mut decl_vars = vec![];
 
@@ -377,7 +391,7 @@ impl<T> Parser<T>
 
             if let Some(Ident(decl_var_name)) = self.tok0.clone() {
                 let tmp_decl = ExpressionDesc::Identifier {
-                    name: decl_var_name.clone(),
+                    name: fun_name.clone() + &decl_var_name,
                     id: self.id
                 };
                 self.next_id();
@@ -398,10 +412,10 @@ impl<T> Parser<T>
         Ok(decl_vars)
     }
 
-    fn parse_cond_expr(&mut self) -> Result<Rc<RefCell<Expression>>, Error> {
+    fn parse_cond_expr(&mut self, fun_name: String) -> Result<Rc<RefCell<Expression>>, Error> {
 
         self.next_token(); //consume (
-        let cond_expr = self.parse_expr()?;
+        let cond_expr = self.parse_expr(fun_name.clone())?;
         self.next_token(); // consume )
 
         Ok(cond_expr)
@@ -409,7 +423,8 @@ impl<T> Parser<T>
 
     fn parse_block(
         &mut self,
-        func_env: &mut FunctionDecl
+        func_env: &mut FunctionDecl,
+        fun_name: String
     ) -> Result<Statements, Error> {
 
         let mut stmts = vec![];
@@ -420,10 +435,10 @@ impl<T> Parser<T>
                     self.next_token();
                     break;
                 }
-                stmts.push(self.parse_stmt(func_env)?);
+                stmts.push(self.parse_stmt(func_env, fun_name.clone())?);
             }
         } else {
-            stmts.push(self.parse_stmt(func_env)?);
+            stmts.push(self.parse_stmt(func_env, fun_name)?);
         }
         Ok(stmts)
     }
@@ -431,7 +446,8 @@ impl<T> Parser<T>
 
     fn parse_stmt(
         &mut self,
-        func_env: &mut FunctionDecl
+        func_env: &mut FunctionDecl,
+        fun_name: String
     ) -> Result<Statement, Error> {
 
         let out;
@@ -441,13 +457,13 @@ impl<T> Parser<T>
 
                 if let Some(Token::Assign) = self.tok0.clone() {
                     self.next_token();
-                    let value = self.parse_expr()?;
+                    let value = self.parse_expr(fun_name.clone())?;
                     self.next_token(); //consume ;
                     let tmp_expr = Rc::new(
                         RefCell::new(
                             Expression::new(
                                 ExpressionDesc::Identifier {
-                                    name: var_name,
+                                    name: fun_name.clone() + &var_name,
                                     id: 0
                                 },
                                 self.id
@@ -466,7 +482,7 @@ impl<T> Parser<T>
             }
             Some(Token::Var)  => {
                 self.next_token();
-                let names = self.parse_decl_var()?;
+                let names = self.parse_decl_var(fun_name.clone())?;
                 self.next_token(); //consume ;
                 out = Statement::new(LocalDecl {
                     names
@@ -475,7 +491,7 @@ impl<T> Parser<T>
             }
             Some(Token::Output) => {
                 self.next_token();
-                let out_expr = self.parse_expr()?;
+                let out_expr = self.parse_expr(fun_name.clone())?;
                 self.next_token(); //consume ;
                 out = Statement::new(
                     Output {
@@ -486,7 +502,7 @@ impl<T> Parser<T>
             }
             Some(Token::Return) => {
                 self.next_token();
-                let ret_expr = self.parse_expr()?;
+                let ret_expr = self.parse_expr(fun_name.clone())?;
                 self.next_token(); //consume ;
                 out = Statement::new(
                     Return {
@@ -497,7 +513,7 @@ impl<T> Parser<T>
             }
             Some(Token::Error) => {
                 self.next_token();
-                let err_expr = self.parse_expr()?;
+                let err_expr = self.parse_expr(fun_name.clone())?;
                 self.next_token(); //consume ;
                 out = Statement::new(StatementDesc::Err {
                     value: err_expr
@@ -506,9 +522,9 @@ impl<T> Parser<T>
             }
             Some(Token::While) => {
                 self.next_token();
-                let cond_expr = self.parse_cond_expr()?;
+                let cond_expr = self.parse_cond_expr(fun_name.clone())?;
                 //self.next_token(); // consume {
-                let out_stmts = self.parse_block(func_env)?;
+                let out_stmts = self.parse_block(func_env, fun_name.clone())?;
                 out = Statement::new(While {
                     cond: cond_expr,
                     body: out_stmts,
@@ -517,11 +533,11 @@ impl<T> Parser<T>
             }
             Some(Token::If) => {
                 self.next_token();
-                let cond_expr = self.parse_cond_expr()?;
-                let then_stmts = self.parse_block(func_env)?;
+                let cond_expr = self.parse_cond_expr(fun_name.clone())?;
+                let then_stmts = self.parse_block(func_env, fun_name.clone())?;
                 if let Some(Token::Else) = self.tok0 {
                     self.next_token(); //consume else
-                    let else_stmts = self.parse_block(func_env)?;
+                    let else_stmts = self.parse_block(func_env, fun_name.clone())?;
                     out = Statement::new(If {
                         cond: cond_expr,
                         then: then_stmts,
@@ -538,9 +554,9 @@ impl<T> Parser<T>
                 }
             }
             Some(Token::Mult) => {
-                let left = self.parse_expr()?;
+                let left = self.parse_expr(fun_name.clone())?;
                 self.next_token();
-                let right = self.parse_expr()?;
+                let right = self.parse_expr(fun_name.clone())?;
                 self.next_token(); //consume ;
                 out = Statement::new(PointerAssignment {
                     target: left,
@@ -550,7 +566,7 @@ impl<T> Parser<T>
             }
             Some(Token::Lcurly) => {
                 out = Statement::new(Block {
-                    body: self.parse_block(func_env)?,
+                    body: self.parse_block(func_env, fun_name.clone())?,
                 });
                 Ok(out)
             }
@@ -558,7 +574,7 @@ impl<T> Parser<T>
         }
     }
 
-    fn parse_paras(&mut self) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
+    fn parse_paras(&mut self, fun_name: String) -> Result<Vec<Rc<RefCell<Expression>>>, Error> {
         let mut paras = vec![];
         self.next_token(); // consume Lparen
         loop {
@@ -574,7 +590,7 @@ impl<T> Parser<T>
                     RefCell::new(
                         Expression::new(
                             ExpressionDesc::Identifier {
-                                name: para_name.clone(),
+                                name: fun_name.clone() + &para_name,
                                 id: 0
                             },
                             self.id
@@ -596,18 +612,20 @@ impl<T> Parser<T>
             Symbols::new(),
             self.id
         );
+        let mut tmp_fun_name = String::new();
         //tmp_func.fun_env.begin_scope();
         self.next_id();
         if let Some(Ident(fun_name)) = self.tok0.clone() {
-            tmp_func.function_name = fun_name;
+            tmp_func.function_name = fun_name.clone();
+            tmp_fun_name = fun_name;
             self.next_token(); //consume function name
         }
         self.result.prog_env.enter(
             tmp_func.function_name.clone(),
             TypeDecl::FunctionDecl(tmp_func.fun_id)
         );
-        tmp_func.paras = self.parse_paras()?;
-        tmp_func.body = self.parse_block(tmp_func.borrow_mut())?;
+        tmp_func.paras = self.parse_paras(tmp_func.function_name.clone())?;
+        tmp_func.body = self.parse_block(tmp_func.borrow_mut(), tmp_fun_name)?;
 
         Ok(tmp_func)
     }
