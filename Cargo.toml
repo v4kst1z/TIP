@@ -10,3 +10,4 @@ edition = "2018"
 lexer = {path = "./lexer", version = "0.1.0"}
 parser = {path = "./parser", version = "0.1.0"}
 type_analysis = {path = "./type_analysis", version = "0.1.0"}
+cfg = {path = "./cfg", version = "0.1.0"}

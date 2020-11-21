@@ -57,7 +57,7 @@ impl fmt::Debug for FunctionDecl {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "[*] function name : {:?}\n", self.function_name)?;
         write!(f, "[*] paras : {:?}\n", self.paras)?;
-        write!(f, "[*] bosy : {:?}\n", self.body)?;
+        write!(f, "[*] body : {:?}\n", self.body)?;
         Ok(())
     }
 }
@@ -188,7 +188,7 @@ pub enum ExpressionDesc {
  * = >
  */
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
